@@ -50,7 +50,12 @@ jobs:
           echo "::add-mask::$key"
           echo "SMOKE_KEY=$key" >> "$GITHUB_ENV"
       - name: Build venenum and start it with ClamAV (the first start downloads the signatures)
-        run: docker compose -f compose.yaml -f compose.smoke.yaml up -d --build --wait --wait-timeout 1500
+        run: |
+          docker compose -f compose.yaml -f compose.smoke.yaml up -d --wait --wait-timeout 1500 clamav
+          # FreshClam can finish updating before clamd opens its socket, missing the reload notification.
+          # Request the reload after clamd is ready; venenum's unchanged health check still requires fresh signatures.
+          docker compose -f compose.yaml -f compose.smoke.yaml exec -T clamav clamdscan --reload
+          docker compose -f compose.yaml -f compose.smoke.yaml up -d --build --wait --wait-timeout 1500
       - name: Smoke test through both routes
         env:
           VENENUM_CALLER: smoke
